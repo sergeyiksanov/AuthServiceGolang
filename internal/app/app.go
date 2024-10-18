@@ -9,12 +9,17 @@ import (
 	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
+	"os"
 )
 
 type App struct {
 	grpcServer      *grpc.Server
 	ServiceProvider *serviceProvider
 }
+
+const (
+	portName = "GRPC_PORT"
+)
 
 func NewApp(ctx context.Context) (*App, error) {
 	a := &App{}
@@ -76,8 +81,9 @@ func (a *App) initGRPC(_ context.Context) error {
 
 func (a *App) runGRPC() error {
 	log.Printf("Starting gRPC Server")
+	port := os.Getenv(portName)
 
-	list, err := net.Listen("tcp", ":50051")
+	list, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		return err
 	}
