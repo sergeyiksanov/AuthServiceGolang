@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package v1;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/AuthService/pkg/api/v1;v1";
+
+service Auth {
+  rpc SignUp(SignUpRequest) returns (google.protobuf.Empty);
+  rpc SignIn(SignInRequest) returns (SignInResponse);
+  rpc VerifyAccessToken(VerifyAccessTokenRequest) returns (VerifyAccessTokenResponse);
+  rpc RefreshTokens(RefreshTokensRequest) returns (RefreshTokensResponse);
+  rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
+//  rpc ResetPassword() returns ();
+//  rpc ConfirmReset() returns ();
+//  rpc UpdatePassword() returns ();
+//  rpc RefreshTokens() returns ();
+}
+
+message LogoutRequest {
+  Tokens tokens = 1;
+}
+
+message RefreshTokensRequest {
+  string refreshToken = 1;
+}
+
+message RefreshTokensResponse {
+  Tokens tokens = 1;
+}
+
+message VerifyAccessTokenRequest {
+  string access = 1;
+}
+
+message VerifyAccessTokenResponse {
+  int64 user_id = 1;
+}
+
+message Credentials {
+  string email = 1;
+  string password = 2;
+}
+
+message Tokens {
+  string access = 1;
+  string refresh = 2;
+}
+
+message SignUpRequest {
+  Credentials credentials = 1;
+}
+
+message SignInRequest {
+  Credentials credentials = 1;
+}
+
+message SignInResponse {
+  Tokens tokens = 1;
+}
