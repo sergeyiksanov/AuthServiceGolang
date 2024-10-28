@@ -4,6 +4,7 @@ import (
 	"AuthService/internal/api"
 	"AuthService/internal/config"
 	"AuthService/internal/repository"
+	"AuthService/internal/service"
 	"AuthService/internal/usecase"
 	"gorm.io/gorm"
 	"log"
@@ -19,6 +20,10 @@ type serviceProvider struct {
 	credentialsUseCase *usecase.CredentialsUseCase
 
 	authServerImpl *api.AuthImplementationSever
+
+	credentialsService *service.CredentialsService
+
+	tokensService *service.TokensService
 
 	gormDB *gorm.DB
 }
@@ -50,10 +55,26 @@ func (s *serviceProvider) CredentialsRepository() *repository.CredentialsReposit
 
 func (s *serviceProvider) CredentialsUseCase() *usecase.CredentialsUseCase {
 	if s.credentialsUseCase == nil {
-		s.credentialsUseCase = usecase.NewCredentialsUseCase(s.GormDB(), s.CredentialsRepository(), s.TokensRepository())
+		s.credentialsUseCase = usecase.NewCredentialsUseCase(s.CredentialsService(), s.TokensService())
 	}
 
 	return s.credentialsUseCase
+}
+
+func (s *serviceProvider) CredentialsService() *service.CredentialsService {
+	if s.credentialsService == nil {
+		s.credentialsService = service.NewCredentialsService(s.GormDB(), s.CredentialsRepository(), s.TokensRepository())
+	}
+
+	return s.credentialsService
+}
+
+func (s *serviceProvider) TokensService() *service.TokensService {
+	if s.tokensService == nil {
+		s.tokensService = service.NewTokensService(s.GormDB(), s.CredentialsRepository(), s.TokensRepository())
+	}
+
+	return s.tokensService
 }
 
 func (s *serviceProvider) GormDB() *gorm.DB {

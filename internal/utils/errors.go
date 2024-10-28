@@ -7,13 +7,12 @@ import (
 
 var (
 	// TOKEN ERRORS
-	RevokedAccessToken  = status.Error(codes.Unauthenticated, "Access token revoked")
-	RevokedRefreshToken = status.Error(codes.Unauthenticated, "Refresh token revoked")
-	InvalidAccessToken  = status.Error(codes.Unauthenticated, "Invalid access token")
-	InvalidRefreshToken = status.Error(codes.Unauthenticated, "Invalid refresh token")
+	RevokedToken = status.Error(codes.Unauthenticated, "Token revoked")
+	InvalidToken = status.Error(codes.Unauthenticated, "Invalid token")
 
 	// CREDENTIALS ERRORS
 	EmailAlreadyExists = status.Error(codes.AlreadyExists, "Email already exists")
+	InvalidCredentials = status.Error(codes.NotFound, "Credentials not found")
 
 	// OTHER ERRORS
 	InternalServerError = status.Error(codes.Internal, "Internal server error")

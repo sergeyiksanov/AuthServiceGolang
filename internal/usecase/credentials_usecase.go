@@ -2,240 +2,155 @@ package usecase
 
 import (
 	"AuthService/internal/entity"
-	"AuthService/internal/repository"
 	"AuthService/internal/utils"
 	proto "AuthService/pkg/api/v1"
 	"context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"gorm.io/gorm"
-	"log"
 )
 
 type CredentialsUseCase struct {
-	DB                    *gorm.DB
-	CredentialsRepository *repository.CredentialsRepository
-	TokensRepository      *repository.TokensRepository
+	crs credentialsService
+	ts  tokensService
 }
 
-func NewCredentialsUseCase(db *gorm.DB, cr *repository.CredentialsRepository, tr *repository.TokensRepository) *CredentialsUseCase {
+func NewCredentialsUseCase(crs credentialsService, ts tokensService) *CredentialsUseCase {
 	return &CredentialsUseCase{
-		DB:                    db,
-		CredentialsRepository: cr,
-		TokensRepository:      tr,
+		crs: crs,
+		ts:  ts,
 	}
 }
 
-func (c *CredentialsUseCase) Logout(ctx context.Context, req *proto.LogoutRequest) (*emptypb.Empty, error) {
-	tx := c.DB.WithContext(ctx).Begin()
-	defer tx.Rollback()
-
-	jwtAccessToken, err := utils.VerifyAccessToken(req.Tokens.Access)
+func (c CredentialsUseCase) Logout(ctx context.Context, req *proto.LogoutRequest) (*emptypb.Empty, error) {
+	jti, err := c.ts.VerifyToken(ctx, req.Tokens.Access, "access")
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
-	jwtRefreshToken, err := utils.VerifyRefreshToken(req.Tokens.Refresh)
+	jti, err = c.ts.VerifyToken(ctx, req.Tokens.Refresh, "refresh")
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
-	jtiAccess, err := utils.GetJTIFromToken(jwtAccessToken)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	jtiRefresh, err := utils.GetJTIFromToken(jwtRefreshToken)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if err := c.TokensRepository.RevokeTokenByJTI(tx, jtiAccess); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if err := c.TokensRepository.RevokeTokenByJTI(tx, jtiRefresh); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to commit transaction: %v", err)
+	if err := c.ts.RevokeTokenByJTI(ctx, jti); err != nil {
+		return nil, err
 	}
 
 	return &emptypb.Empty{}, nil
 }
 
-func (c *CredentialsUseCase) RefreshTokens(ctx context.Context, req *proto.RefreshTokensRequest) (*proto.RefreshTokensResponse, error) {
-	tx := c.DB.WithContext(ctx).Begin()
-	defer tx.Rollback()
-
-	jwtRefreshToken, err := utils.VerifyRefreshToken(req.RefreshToken)
+func (c CredentialsUseCase) RefreshTokens(ctx context.Context, req *proto.RefreshTokensRequest) (*proto.RefreshTokensResponse, error) {
+	jti, err := c.ts.VerifyToken(ctx, req.RefreshToken, "refresh")
 	if err != nil {
 		return nil, err
 	}
 
-	jti, err := utils.GetJTIFromToken(jwtRefreshToken)
+	token, err := c.ts.GetTokenByJTI(ctx, jti)
 	if err != nil {
 		return nil, err
-	}
-
-	token := new(entity.Token)
-	if err := c.TokensRepository.GetTokenByJTI(tx, jti, token); err != nil {
-		return nil, utils.InvalidRefreshToken
 	}
 
 	if token.Revoked {
-		return nil, utils.RevokedRefreshToken
+		return nil, utils.RevokedToken
 	}
 
-	if err := c.TokensRepository.RevokeAllTokensWithBySubjectId(tx, token.SubjectId); err != nil {
-		return nil, utils.InternalServerError
+	if err := c.ts.RevokeAllTokensWithBySubjectId(ctx, token.SubjectId); err != nil {
+		return nil, err
 	}
 
-	credentials := new(entity.Credentials)
-	if err := c.CredentialsRepository.GetById(tx, credentials, token.SubjectId); err != nil {
-		return nil, utils.InternalServerError
+	credentials, err := c.crs.GetCredentialsById(ctx, token.SubjectId)
+	if err != nil {
+		return nil, err
 	}
 
-	accessToken, refreshToken, accessTokenString, refreshTokenString, err := utils.CreatePairTokens(credentials.ID, credentials.Email)
-
-	if err := c.TokensRepository.Create(tx, accessToken); err != nil {
-		log.Fatalf("Failed save access token: %v", err)
-		return nil, utils.InternalServerError
-	}
-
-	if err := c.TokensRepository.Create(tx, refreshToken); err != nil {
-		log.Fatalf("Failed save refresh token: %v", err)
-		return nil, utils.InternalServerError
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, utils.InternalServerError
+	accessToken, refreshToken, err := c.ts.CreateAccessRefreshPairTokens(ctx, credentials.ID, credentials.Email)
+	if err != nil {
+		return nil, err
 	}
 
 	return &proto.RefreshTokensResponse{
 		Tokens: &proto.Tokens{
-			Refresh: refreshTokenString,
-			Access:  accessTokenString,
+			Refresh: refreshToken,
+			Access:  accessToken,
 		},
 	}, nil
 }
 
-func (c *CredentialsUseCase) VerifyAccessToken(ctx context.Context, req *proto.VerifyAccessTokenRequest) (*proto.VerifyAccessTokenResponse, error) {
-	tx := c.DB.WithContext(ctx).Begin()
-	defer tx.Rollback()
-
-	jwtToken, err := utils.VerifyAccessToken(req.Access)
+func (c CredentialsUseCase) VerifyAccessToken(ctx context.Context, req *proto.VerifyAccessTokenRequest) (*proto.VerifyAccessTokenResponse, error) {
+	jti, err := c.ts.VerifyToken(ctx, req.Access, "access")
 	if err != nil {
 		return nil, err
 	}
 
-	jti, err := utils.GetJTIFromToken(jwtToken)
+	tokenDto, err := c.ts.GetTokenByJTI(ctx, jti)
 	if err != nil {
 		return nil, err
 	}
 
-	token := new(entity.Token)
-	if err := c.TokensRepository.GetTokenByJTI(tx, jti, token); err != nil {
-		log.Fatalf("GetTokenByJTI error: %v", err)
-		return nil, utils.InvalidAccessToken
+	if tokenDto.TokenType != "access" {
+		return nil, utils.InvalidToken
 	}
 
-	if token.TokenType != "access" {
-		return nil, utils.InvalidAccessToken
-	}
-
-	if token.Revoked {
-		return nil, utils.InvalidAccessToken
+	if tokenDto.Revoked {
+		return nil, utils.InvalidToken
 	}
 
 	return &proto.VerifyAccessTokenResponse{
-		UserId: token.SubjectId,
+		UserId: tokenDto.SubjectId,
 	}, nil
 }
 
-func (c *CredentialsUseCase) SignIn(ctx context.Context, req *proto.SignInRequest) (*proto.SignInResponse, error) {
-	tx := c.DB.WithContext(ctx).Begin()
-	defer tx.Rollback()
-
-	count, err := c.CredentialsRepository.GetCountByEmail(tx, req.Credentials.Email)
+func (c CredentialsUseCase) SignIn(ctx context.Context, req *proto.SignInRequest) (*proto.SignInResponse, error) {
+	res, err := c.crs.CheckAlreadyExistsEmail(ctx, req.Credentials.Email)
 	if err != nil {
-		log.Fatalf("Failed to get count credentials by email: %v", err)
+		return nil, err
+	}
+	if !res {
+		return nil, utils.InvalidCredentials
+	}
+
+	credentials, err := c.crs.GetCredentialsByEmail(ctx, req.Credentials.Email)
+	if err != nil {
 		return nil, err
 	}
 
-	if count == 0 {
-		return nil, status.Errorf(codes.NotFound, "Credentials not found")
+	if !c.crs.ValidatePassword(req.Credentials.Password, credentials.Password) {
+		return nil, utils.InvalidCredentials
 	}
 
-	credentials := new(entity.Credentials)
-	if err := c.CredentialsRepository.GetByEmail(tx, req.Credentials.Email, credentials); err != nil {
-		log.Fatalf("Failed get user: %v", err)
-		return nil, err
-	}
-
-	if !utils.CheckPasswordHash(req.Credentials.Password, credentials.Password) {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid Password")
-	}
-
-	accessToken, refreshToken, accessTokenString, refreshTokenString, err := utils.CreatePairTokens(credentials.ID, credentials.Email)
+	accessToken, refreshToken, err := c.ts.CreateAccessRefreshPairTokens(ctx, credentials.ID, credentials.Email)
 	if err != nil {
-		log.Fatalf("Failed to create access token: %v", err)
-		return nil, utils.InternalServerError
-	}
-
-	if err := c.TokensRepository.Create(tx, accessToken); err != nil {
-		log.Fatalf("Failed save access token: %v", err)
-		return nil, utils.InternalServerError
-	}
-
-	if err := c.TokensRepository.Create(tx, refreshToken); err != nil {
-		log.Fatalf("Failed save refresh token: %v", err)
-		return nil, utils.InternalServerError
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, utils.InternalServerError
+		return nil, err
 	}
 
 	return &proto.SignInResponse{
 		Tokens: &proto.Tokens{
-			Refresh: refreshTokenString,
-			Access:  accessTokenString,
+			Refresh: refreshToken,
+			Access:  accessToken,
 		},
 	}, nil
 }
 
-func (c *CredentialsUseCase) SignUp(ctx context.Context, req *proto.SignUpRequest) (*emptypb.Empty, error) {
-	tx := c.DB.WithContext(ctx).Begin()
-	defer tx.Rollback()
-
-	count, err := c.CredentialsRepository.GetCountByEmail(tx, req.Credentials.Email)
+func (c CredentialsUseCase) SignUp(ctx context.Context, req *proto.SignUpRequest) error {
+	res, err := c.crs.CheckAlreadyExistsEmail(ctx, req.Credentials.Email)
 	if err != nil {
-		log.Fatalf("Failed to get count creaditianals with email: +%v", err)
-		return nil, utils.InternalServerError
+		return err
+	}
+	if res {
+		return utils.EmailAlreadyExists
 	}
 
-	if count > 0 {
-		return nil, utils.EmailAlreadyExists
-	}
-
-	hashPassword, err := utils.HashPassword(req.Credentials.Password)
+	hash, err := c.crs.HashPassword(req.Credentials.Password)
 	if err != nil {
-		log.Fatalf("Failed to hash password: +%v", err)
-		return nil, utils.InternalServerError
+		return err
 	}
 
-	user := &entity.Credentials{
+	credentials := entity.Credentials{
 		Email:    req.Credentials.Email,
-		Password: hashPassword,
+		Password: hash,
 	}
 
-	if err := c.CredentialsRepository.Create(tx, user); err != nil {
-		return nil, utils.InternalServerError
+	if err := c.crs.CreateCredentials(ctx, credentials); err != nil {
+		return err
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		return nil, utils.InternalServerError
-	}
-
-	return &emptypb.Empty{}, nil
+	return nil
 }

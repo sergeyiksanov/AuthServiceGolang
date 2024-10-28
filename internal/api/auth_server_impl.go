@@ -23,7 +23,7 @@ func (is *AuthImplementationSever) RefreshTokens(ctx context.Context, req *desc.
 }
 
 func (is *AuthImplementationSever) SignUp(ctx context.Context, req *desc.SignUpRequest) (*emptypb.Empty, error) {
-	return is.credentialsUseCase.SignUp(ctx, req)
+	return &emptypb.Empty{}, is.credentialsUseCase.SignUp(ctx, req)
 }
 
 func (is *AuthImplementationSever) SignIn(ctx context.Context, req *desc.SignInRequest) (*desc.SignInResponse, error) {
