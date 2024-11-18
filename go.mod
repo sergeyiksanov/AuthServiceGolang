@@ -22,6 +22,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/rabbitmq/amqp091-go v1.10.0 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/sergeyiksanov/notification-service v0.0.1 // indirect
