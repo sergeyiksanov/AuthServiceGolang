@@ -5,6 +5,8 @@ import (
 	"AuthService/internal/utils"
 	proto "AuthService/pkg/api/v1"
 	"context"
+	"log"
+
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -152,5 +154,15 @@ func (c CredentialsUseCase) SignUp(ctx context.Context, req *proto.SignUpRequest
 		return err
 	}
 
+	// TODO: Продолжить тут
+	code, err := c.crs.SendConfirmRegistrationMailToEmail(req.Credentials.Email)
+	if err != nil {
+		log.Printf("Failed send email: %d", err)
+		return err
+	}
+
+	log.Printf("Confirm code: %s", code)
+
 	return nil
 }
+

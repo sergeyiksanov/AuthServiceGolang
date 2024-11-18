@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	eventQueueName = ""
+	eventQueueName = "event_notifications"
 )
 
 type NotificationExternal struct {

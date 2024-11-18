@@ -4,22 +4,27 @@ import (
 	"AuthService/internal/convertor"
 	"AuthService/internal/dto"
 	"AuthService/internal/entity"
+	"AuthService/internal/external"
 	"context"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"math/rand"
 )
 
 type CredentialsService struct {
 	db        *gorm.DB
 	crRepo    credentialsRepository
 	tokenRepo tokensRepository
+	external  *external.NotificationExternal
 }
 
-func NewCredentialsService(db *gorm.DB, crRepo credentialsRepository, tokensRepo tokensRepository) *CredentialsService {
+func NewCredentialsService(db *gorm.DB, crRepo credentialsRepository, tokensRepo tokensRepository, external *external.NotificationExternal) *CredentialsService {
 	return &CredentialsService{
 		db:        db,
 		crRepo:    crRepo,
 		tokenRepo: tokensRepo,
+		external:  external,
 	}
 }
 
@@ -89,3 +94,29 @@ func (cr *CredentialsService) GetCredentialsById(ctx context.Context, id int64) 
 
 	return credentialsDto.ToCredentialsEntity(), nil
 }
+
+func generateRandomCode() string {
+	letterBytes := "0123456789"
+	b := make([]byte, 6)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+}
+
+func (cr *CredentialsService) SendConfirmRegistrationMailToEmail(email string) (string, error) {
+	code := generateRandomCode()
+	req := entity.EmailEventNotificationEntity{
+		Name:  "Подтверждение регистрации",
+		Title: "Подтвердите регистрацию",
+		Body:  "Код подтверждения регистрации: " + code + ".\nНикому не сообщайте код.",
+		Email: email,
+	}
+
+	if err := cr.external.SendEmailEventNotification(&req); err != nil {
+		return "", err
+	}
+
+	return code, nil
+}
+

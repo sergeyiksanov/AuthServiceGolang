@@ -13,6 +13,7 @@ type credentialsService interface {
 	ValidatePassword(password, hash string) bool
 	CreateCredentials(ctx context.Context, credentials entity.Credentials) error
 	GetCredentialsByEmail(ctx context.Context, email string) (entity.Credentials, error)
+	SendConfirmRegistrationMailToEmail(email string) (string, error)
 }
 
 type tokensService interface {
@@ -22,3 +23,4 @@ type tokensService interface {
 	VerifyToken(ctx context.Context, tokenString string, expectedType string) (string, error)
 	CreateAccessRefreshPairTokens(ctx context.Context, credentialsId int64, email string) (string, string, error)
 }
+

@@ -3,11 +3,13 @@ package app
 import (
 	"AuthService/internal/api"
 	"AuthService/internal/config"
+	"AuthService/internal/external"
 	"AuthService/internal/repository"
 	"AuthService/internal/service"
 	"AuthService/internal/usecase"
-	"gorm.io/gorm"
 	"log"
+
+	"gorm.io/gorm"
 )
 
 type serviceProvider struct {
@@ -26,6 +28,10 @@ type serviceProvider struct {
 	tokensService *service.TokensService
 
 	gormDB *gorm.DB
+
+	rabbitMqConfig *config.RabbitMqConfig
+
+	notificationExternal *external.NotificationExternal
 }
 
 func newServiceProvider() *serviceProvider {
@@ -43,6 +49,28 @@ func (s *serviceProvider) GRPCConfig() config.GRPCConfig {
 	}
 
 	return s.grpcConfig
+}
+
+func (s *serviceProvider) NotificationExternal() *external.NotificationExternal {
+	if s.notificationExternal == nil {
+		s.notificationExternal = external.NewNotificationExternal(s.RabbitMqConfig())
+	}
+
+	return s.notificationExternal
+}
+
+func (s *serviceProvider) RabbitMqConfig() *config.RabbitMqConfig {
+	if s.rabbitMqConfig == nil {
+		r, err := config.NewRabbitMqConfig()
+
+		if err != nil {
+			log.Fatalf("Failed set rabbit mq config: %s", err)
+		}
+
+		s.rabbitMqConfig = r
+	}
+
+	return s.rabbitMqConfig
 }
 
 func (s *serviceProvider) CredentialsRepository() *repository.CredentialsRepository {
@@ -63,7 +91,7 @@ func (s *serviceProvider) CredentialsUseCase() *usecase.CredentialsUseCase {
 
 func (s *serviceProvider) CredentialsService() *service.CredentialsService {
 	if s.credentialsService == nil {
-		s.credentialsService = service.NewCredentialsService(s.GormDB(), s.CredentialsRepository(), s.TokensRepository())
+		s.credentialsService = service.NewCredentialsService(s.GormDB(), s.CredentialsRepository(), s.TokensRepository(), s.NotificationExternal())
 	}
 
 	return s.credentialsService
@@ -100,3 +128,4 @@ func (s *serviceProvider) TokensRepository() *repository.TokensRepository {
 
 	return s.tokensRepository
 }
+

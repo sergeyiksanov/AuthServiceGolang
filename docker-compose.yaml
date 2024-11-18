@@ -17,9 +17,13 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_REFRESH_LIFE_TIME_DAY: ${JWT_REFRESH_LIFE_TIME_DAY}
       JWT_ACCESS_LIFE_TIME_MINUTE: ${JWT_ACCESS_LIFE_TIME_MINUTE}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_QUEUE_EVENT_NOTIFICATIONS: ${RABBITMQ_QUEUE_EVENT_NOTIFICATIONS}
+      RABBITMQ_QUEUE_BROADCAST_NOTIFICATIONS: ${RABBITMQ_QUEUE_BROADCAST_NOTIFICATIONS}
 
     depends_on:
       - postgres
+      - notification
 
   postgres:
     image: "postgres:13"
@@ -29,3 +33,22 @@ services:
       POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
+
+  notification:
+    build: ~/GolandProjects/NotificationService/
+    ports:
+      - "5673:5673"
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_QUEUE_EVENT_NOTIFICATIONS: ${RABBITMQ_QUEUE_EVENT_NOTIFICATIONS}
+      RABBITMQ_QUEUE_BROADCAST_NOTIFICATIONS: ${RABBITMQ_QUEUE_BROADCAST_NOTIFICATIONS}
+    depends_on:
+      - rabbitmq
+  
+  rabbitmq:
+    image: "rabbitmq:3.10.7-management"
+    environment:
+      - RABBITMQ_DEFAULT_USER=sergeyiksanov
+      - RABBITMQ_DEFAULT_PASS=&232717&Al
+    ports:
+      - 5672:5672
