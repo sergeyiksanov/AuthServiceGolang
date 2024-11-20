@@ -2,14 +2,16 @@ package app
 
 import (
 	"AuthService/internal/config"
+	"AuthService/internal/metrics"
 	proto "AuthService/pkg/api/v1"
 	"context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
 	"os"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
 )
 
 type App struct {
@@ -47,6 +49,10 @@ func (a *App) initDeps(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (a *App) RunMetrics() error {
+	return metrics.Listen("0.0.0.0:8002")
 }
 
 func (a *App) Run() error {

@@ -22,5 +22,6 @@ COPY --from=builder /app/cmd/app/auth_service .
 COPY --from=builder /app/db/migrations /root/db/migrations
 
 EXPOSE 8000
+EXPOSE 8002
 
 CMD goose -dir /root/db/migrations postgres "postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable" up && ./auth_service

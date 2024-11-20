@@ -4,6 +4,10 @@ import (
 	"AuthService/internal/usecase"
 	desc "AuthService/pkg/api/v1"
 	"context"
+	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -23,7 +27,21 @@ func (is *AuthImplementationSever) RefreshTokens(ctx context.Context, req *desc.
 }
 
 func (is *AuthImplementationSever) SignUp(ctx context.Context, req *desc.SignUpRequest) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, is.credentialsUseCase.SignUp(ctx, req)
+	start := time.Now()
+	err := is.credentialsUseCase.SignUp(ctx, req)
+	defer func() {
+		code := codes.OK
+		if err != nil {
+			st, ok := status.FromError(err)
+			if !ok {
+				code = codes.Internal
+			} else {
+				code = st.Code()
+			}
+		}
+		observeSignUpRequest(time.Since(start), code)
+	}()
+	return &emptypb.Empty{}, err
 }
 
 func (is *AuthImplementationSever) SignIn(ctx context.Context, req *desc.SignInRequest) (*desc.SignInResponse, error) {
