@@ -24,7 +24,22 @@ func NewAuthImplementationSever(useCase *usecase.CredentialsUseCase) *AuthImplem
 }
 
 func (is *AuthImplementationSever) RefreshTokens(ctx context.Context, req *desc.RefreshTokensRequest) (*desc.RefreshTokensResponse, error) {
-	return is.credentialsUseCase.RefreshTokens(ctx, req)
+	start := time.Now()
+	resp, err := is.credentialsUseCase.RefreshTokens(ctx, req)
+	defer func() {
+		code := codes.OK
+		if err != nil {
+			st, ok := status.FromError(err)
+			if !ok {
+				code = codes.Internal
+			} else {
+				code = st.Code()
+			}
+		}
+		metrics.ObserveRefreshTokensRequest(time.Since(start), code)
+	}()
+
+	return resp, err
 }
 
 func (is *AuthImplementationSever) SignUp(ctx context.Context, req *desc.SignUpRequest) (*emptypb.Empty, error) {
