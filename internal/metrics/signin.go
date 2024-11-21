@@ -16,5 +16,5 @@ var requestMetricsSignIn = promauto.NewSummaryVec(prometheus.SummaryOpts{
 }, []string{"status"})
 
 func ObserveSignInRequest(d time.Duration, code codes.Code) {
-	requestMetricsSignUp.WithLabelValues(strconv.Itoa(MapGRPCCodeToHTTPCode(code))).Observe(d.Seconds())
+	requestMetricsSignIn.WithLabelValues(strconv.Itoa(MapGRPCCodeToHTTPCode(code))).Observe(d.Seconds())
 }

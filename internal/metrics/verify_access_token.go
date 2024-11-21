@@ -16,5 +16,5 @@ var requestMetricsVerifyAccessToken = promauto.NewSummaryVec(prometheus.SummaryO
 }, []string{"status"})
 
 func ObserveVerifyAccessTokenRequest(d time.Duration, code codes.Code) {
-	requestMetricsSignUp.WithLabelValues(strconv.Itoa(MapGRPCCodeToHTTPCode(code))).Observe(d.Seconds())
+	requestMetricsVerifyAccessToken.WithLabelValues(strconv.Itoa(MapGRPCCodeToHTTPCode(code))).Observe(d.Seconds())
 }

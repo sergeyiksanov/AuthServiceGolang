@@ -16,5 +16,5 @@ var requestMetricsLogout = promauto.NewSummaryVec(prometheus.SummaryOpts{
 }, []string{"status"})
 
 func ObserveLogoutRequest(d time.Duration, code codes.Code) {
-	requestMetricsSignUp.WithLabelValues(strconv.Itoa(MapGRPCCodeToHTTPCode(code))).Observe(d.Seconds())
+	requestMetricsLogout.WithLabelValues(strconv.Itoa(MapGRPCCodeToHTTPCode(code))).Observe(d.Seconds())
 }
