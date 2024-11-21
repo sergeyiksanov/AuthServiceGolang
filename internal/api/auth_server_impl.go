@@ -1,6 +1,7 @@
 package api
 
 import (
+	"AuthService/internal/metrics"
 	"AuthService/internal/usecase"
 	desc "AuthService/pkg/api/v1"
 	"context"
@@ -39,13 +40,28 @@ func (is *AuthImplementationSever) SignUp(ctx context.Context, req *desc.SignUpR
 				code = st.Code()
 			}
 		}
-		observeSignUpRequest(time.Since(start), code)
+		metrics.ObserveSignUpRequest(time.Since(start), code)
 	}()
 	return &emptypb.Empty{}, err
 }
 
 func (is *AuthImplementationSever) SignIn(ctx context.Context, req *desc.SignInRequest) (*desc.SignInResponse, error) {
-	return is.credentialsUseCase.SignIn(ctx, req)
+	start := time.Now()
+	resp, err := is.credentialsUseCase.SignIn(ctx, req)
+	defer func() {
+		code := codes.OK
+		if err != nil {
+			st, ok := status.FromError(err)
+			if !ok {
+				code = codes.Internal
+			} else {
+				code = st.Code()
+			}
+		}
+		metrics.ObserveSignInRequest(time.Since(start), code)
+	}()
+
+	return resp, err
 }
 
 func (is *AuthImplementationSever) VerifyAccessToken(ctx context.Context, req *desc.VerifyAccessTokenRequest) (*desc.VerifyAccessTokenResponse, error) {
