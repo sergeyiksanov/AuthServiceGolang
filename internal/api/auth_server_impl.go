@@ -65,7 +65,21 @@ func (is *AuthImplementationSever) SignIn(ctx context.Context, req *desc.SignInR
 }
 
 func (is *AuthImplementationSever) VerifyAccessToken(ctx context.Context, req *desc.VerifyAccessTokenRequest) (*desc.VerifyAccessTokenResponse, error) {
-	return is.credentialsUseCase.VerifyAccessToken(ctx, req)
+	start := time.Now()
+	resp, err := is.credentialsUseCase.VerifyAccessToken(ctx, req)
+	defer func() {
+		code := codes.OK
+		if err != nil {
+			st, ok := status.FromError(err)
+			if !ok {
+				code = codes.Internal
+			} else {
+				code = st.Code()
+			}
+			metrics.ObserveVerifyAccessTokenRequest(time.Since(start), code)
+		}
+	}()
+	return resp, err
 }
 
 func (is *AuthImplementationSever) Logout(ctx context.Context, req *desc.LogoutRequest) (*emptypb.Empty, error) {
