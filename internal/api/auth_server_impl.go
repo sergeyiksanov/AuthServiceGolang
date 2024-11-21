@@ -83,5 +83,20 @@ func (is *AuthImplementationSever) VerifyAccessToken(ctx context.Context, req *d
 }
 
 func (is *AuthImplementationSever) Logout(ctx context.Context, req *desc.LogoutRequest) (*emptypb.Empty, error) {
-	return is.credentialsUseCase.Logout(ctx, req)
+	start := time.Now()
+	resp, err := is.credentialsUseCase.Logout(ctx, req)
+	defer func() {
+		code := codes.OK
+		if err != nil {
+			st, ok := status.FromError(err)
+			if !ok {
+				code = codes.Internal
+			} else {
+				code = st.Code()
+			}
+			metrics.ObserveLogoutRequest(time.Since(start), code)
+		}
+	}()
+
+	return resp, err
 }
